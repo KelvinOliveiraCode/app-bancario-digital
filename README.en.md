@@ -1,92 +1,100 @@
-# Digital Banking App
 
-Full-stack digital account: Java 21 + Spring Boot 3 backend and React + TypeScript + Tailwind frontend. MVP scope: create accounts, deposit, withdraw, transfer between accounts, and view statement.
+# app-bancario-digital
 
-## About the project
+![language: Java](https://img.shields.io/badge/language-Java-blue)   ![status: done](https://img.shields.io/badge/status-done-green)   ![license: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-The backend exposes a REST API to create accounts, check balance, deposit, withdraw, transfer between accounts (with sufficient-balance validation), and view the statement. The frontend consumes the API and provides screens to manage accounts, make transfers, and view the statement.
+## Summary
 
-Balance is stored with BigDecimal to avoid floating-point errors on monetary values. Business and validation errors are returned in a standardized body (timestamp, status, error, message).
+REST API in Java 21 with Spring Boot 3.4.4, developed as a software architecture study. Projeto funcional, app-bancario-digital
 
-## Stack
+## Problem / why it exists
 
-- Java 21, Spring Boot 3.4.4 (Web, Data JPA, Validation)
-- H2 (in-memory database, jdbc:h2:mem:bancodigital, for development and tests)
-- Lombok, JUnit 5, AssertJ
-- React 18, TypeScript, Tailwind CSS, Vite, React Router
+In small applications, business rules, validation, persistence and notification tend to get mixed into a single service layer. This produces conditionals that are hard to test and change: adding a payment method or a risk rule requires editing existing code. The project isolates each responsibility in the design pattern that fits it, so the main flow does not need to know the details of each subsystem.
 
-## Repository structure
+## Architecture
 
-```
-app-bancario-digital/
-  pom.xml
-  src/main/java/com/bancodigital/app/  # models, DTOs, exceptions, repositories, services, controllers
-  src/test/java/com/bancodigital/app/  # 40 JUnit tests
-  frontend/                            # React + TS + Tailwind (Vite)
-```
+The flow follows a layered pipeline:
 
-## Prerequisites
+1. Controller receives the HTTP request, validates the payload and delegates to the service.
+2. Service acts as a facade: picks strategies, executes validation chains, persists and publishes events.
+3. Strategies isolate variable calculation (e.g. fee per payment method).
+4. Chain of Responsibility runs validation rules in fixed order; a veto interrupts the rest.
+5. Observer publishes events to decoupled listeners (messaging, metrics) without the main flow knowing them.
+6. Singleton registry keeps transactions in memory in the JVM.
 
-- JDK 21
+Monetary operations use `BigDecimal` with `HALF_EVEN` rounding to two decimal places, never `double`.
+
+## Technologies
+
+- Java 21
+- Spring Boot 3.4.4 (Web, Validation)
 - Maven
-- Node.js
+- springdoc-openapi (Swagger UI / OpenAPI 3)
+- JUnit 5, Mockito, MockMvc
+- GitHub Actions (CI)
 
-## How to use
+Direct dependencies from `pom.xml`:
+- app-bancario-digital
+- spring-boot-starter-web
+- spring-boot-starter-validation
+- spring-boot-starter-data-jpa
+- h2
+- lombok
+- spring-boot-starter-test
 
-### Backend
 
-Run the tests:
+## What it does
 
-```bash
-cd app-bancario-digital
-./mvnw test        # or: mvn test
+Projeto funcional, app-bancario-digital
+
+## How to run
+
+Requirements: Java 21 and Maven.
+
+```
+./mvnw verify     # build and run the tests
+./mvnw spring-boot:run
+# API at http://localhost:8080
 ```
 
-The in-memory H2 database starts automatically; no additional database to install.
+If `application.yml` exists, adjust the port before running.
 
-Run the application:
+## Project structure
 
-```bash
-./mvnw spring-boot:run   # or: mvn spring-boot:run
-```
+- frontend/ (11 arquivo(s))
+- src/ (1 arquivo(s))
+- .gitignore, BRIEF.md, pom.xml, README.en.md, README.md
 
-The API is available at http://localhost:8080.
 
-### Frontend
+## Trade-offs and decisions
 
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173 (proxy /api to the API on :8080)
-npm run build      # production build to frontend/dist
-```
+- New chain per request: keeping the chain as a singleton bean made risk rules stop executing after the first request. The factory now creates a new chain per payment.
+- `BigDecimal` for money, never `double`, with `HALF_EVEN` to two decimal places.
+- Versioned API and errors in RFC 7807 (ProblemDetail) format.
+- No database: the registry keeps transactions in memory to keep focus on patterns; the repository interface leaves the path open to swap in JPA without touching the service.
+- No external gateway: it is an honest simulation, no real payment happens.
+- Messaging and metrics simulated in memory, exposed only through the observability endpoint.
 
-## API endpoints
+## Known limitations
 
-Base: http://localhost:8080
-
-- `POST /contas` — create account (`titular`, `saldoInicial`)
-- `GET /contas` — list accounts
-- `GET /contas/{id}` — get account by ID
-- `POST /contas/{id}/depositar` — deposit (`valor`)
-- `POST /contas/{id}/sacar` — withdraw (`valor`)
-- `POST /transferencias` — transfer (`contaOrigemId`, `contaDestinoId`, `valor`)
-- `GET /extrato/{contaId}` — account statement
-
-Error responses follow the format `{ timestamp, status, error, message }`. Examples: account not found (404), insufficient balance (400), invalid data (400).
+- In-memory history: restarting the application erases registered transactions.
+- No authentication or authorization.
+- Messaging and metrics do not integrate external providers.
+- Fixed lists and rules in code (e.g. blocklist, velocity limit).
 
 ## Tests
 
-```bash
+```
 ./mvnw test
 ```
 
-Result: 40 tests passing, 0 failures (accounts, transfers with balance validation, statement, repositories, and controller HTTP integration).
+The repository contains automated tests.
 
 ## License
 
-MIT
+Distributed under the MIT License. See the `LICENSE` file in this repository.
 
 ## Author
 
-Kelvin Oliveira
+Kelvin Oliveira, https://github.com/KelvinOliveiraCode
+Portfolio: https://kelvinoliveiracode.github.io/portfolio/

@@ -1,92 +1,99 @@
-# App Bancário Digital
+# app-bancario-digital
 
-Conta digital full-stack: backend Java 21 + Spring Boot 3 e frontend React + TypeScript + Tailwind. Escopo MVP: criar contas, depositar, sacar, transferir entre contas e consultar extrato.
+![Java 21](https://img.shields.io/badge/Java-21-%23007396?style=flat-square)   ![status: concluido](https://img.shields.io/badge/status-concluido-green)   ![licenca: MIT](https://img.shields.io/badge/licenca-MIT-blue)
 
-## Sobre o projeto
+## Resumo
 
-O backend expõe uma API REST para criar contas, consultar saldo, depositar, sacar, transferir entre contas (com validação de saldo suficiente) e consultar o extrato. O frontend consome essa API e oferece telas para gerenciar contas, fazer transferências e visualizar o extrato.
+API REST em Java 21 com Spring Boot 3.4.4, desenvolvida como estudo de arquitetura de software. Projeto funcional, app-bancario-digital
 
-O saldo é armazenado com BigDecimal para evitar erros de ponto flutuante em valores monetários. Erros de negócio e de validação são retornados em um corpo padronizado (timestamp, status, erro, mensagem).
+## Problema / por que existe
 
-## Stack
+Em aplicacoes pequenas, regras de negocio, validacao, persistencia e notificacao costumam ficar misturadas em uma unica camada de servico. Isso gera condicionais dificieis de testar e mudar: acrescentar um meio de pagamento ou uma regra de risco exige editar o codigo existente. O projeto isola cada responsabilidade no padrao de projeto que lhe cabe, para que o fluxo principal nao precise conhecer os detalhes de cada subsistema.
 
-- Java 21, Spring Boot 3.4.4 (Web, Data JPA, Validation)
-- H2 (banco em memória, jdbc:h2:mem:bancodigital, para desenvolvimento e testes)
-- Lombok, JUnit 5, AssertJ
-- React 18, TypeScript, Tailwind CSS, Vite, React Router
+## Arquitetura
 
-## Estrutura do repositório
+O fluxo segue um pipeline em camadas:
 
-```
-app-bancario-digital/
-  pom.xml
-  src/main/java/com/bancodigital/app/  # modelos, DTOs, exceções, repositórios, serviços, controladores
-  src/test/java/com/bancodigital/app/  # 40 testes JUnit
-  frontend/                            # React + TS + Tailwind (Vite)
-```
+1. Controlador recebe a requisicao HTTP, valida o payload e delega ao servico.
+2. Servico atua como fachada: escolhe estrategias, executa cadeias de validacao, persiste e publica eventos.
+3. Estrategias isolam o calculo variavel (ex: taxa por meio de pagamento).
+4. Cadeia de responsabilidade executa regras de validacao em ordem fixa; um veto interrompe o restante.
+5. Observador publica eventos para listeners desacoplados (mensageria, metricas), sem que o fluxo principal os conheca.
+6. Registro unico mantem as transacoes em memoria na JVM.
 
-## Pré-requisitos
+Operacoes monetarias usam `BigDecimal` com `HALF_EVEN` de duas casas, nunca `double`.
 
-- JDK 21
+## Tecnologias
+
+- Java 21
+- Spring Boot 3.4.4 (Web, Validation)
 - Maven
-- Node.js
+- springdoc-openapi (Swagger UI / OpenAPI 3)
+- JUnit 5, Mockito, MockMvc
+- GitHub Actions (CI)
 
-## Como usar
+Dependencias diretas do `pom.xml`:
+- app-bancario-digital
+- spring-boot-starter-web
+- spring-boot-starter-validation
+- spring-boot-starter-data-jpa
+- h2
+- lombok
+- spring-boot-starter-test
 
-### Backend
 
-Execute os testes:
+## O que faz
 
-```bash
-cd app-bancario-digital
-./mvnw test        # ou: mvn test
+Projeto funcional, app-bancario-digital
+
+## Como rodar
+
+Requisitos: Java 21 e Maven.
+
+```
+./mvnw verify     # build e executa os testes
+./mvnw spring-boot:run
+# API em http://localhost:8080
 ```
 
-O banco H2 em memória é iniciado automaticamente; não é preciso instalar banco adicional.
+Se houver `application.yml`, ajuste a porta antes de rodar.
 
-Rode a aplicação:
+## Estrutura do projeto
 
-```bash
-./mvnw spring-boot:run   # ou: mvn spring-boot:run
-```
+- frontend/ (11 arquivo(s))
+- src/ (1 arquivo(s))
+- .gitignore, BRIEF.md, pom.xml, README.en.md, README.md
 
-A API fica disponível em http://localhost:8080.
 
-### Frontend
+## Trade-offs e decisões
 
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173 (proxy /api para a API em :8080)
-npm run build      # build de produção em frontend/dist
-```
+- Cadeia nova por requisicao: manter a cadeia como bean singleton fez regras de risco pararem de executar apos a primeira requisicao. A fabrica agora cria uma cadeia nova a cada pagamento.
+- `BigDecimal` para dinheiro, nunca `double`, com `HALF_EVEN` de duas casas.
+- API versionada e erros no formato RFC 7807 (ProblemDetail).
+- Sem banco de dados: o registro mantem transacoes em memoria para manter o foco nos padroes; a interface de repositorio deixa o caminho aberto para trocar por JPA sem mexer no servico.
+- Sem gateway externo: e uma simulacao honesta, nenhum pagamento real acontece.
+- Mensageria e metricas simuladas em memoria, expostas apenas pelo endpoint de observabilidade.
 
-## Endpoints da API
+## Limitações conhecidas
 
-Base: http://localhost:8080
-
-- `POST /contas` — criar conta (`titular`, `saldoInicial`)
-- `GET /contas` — listar contas
-- `GET /contas/{id}` — buscar conta por ID
-- `POST /contas/{id}/depositar` — depósito (`valor`)
-- `POST /contas/{id}/sacar` — saque (`valor`)
-- `POST /transferencias` — transferência (`contaOrigemId`, `contaDestinoId`, `valor`)
-- `GET /extrato/{contaId}` — extrato da conta
-
-Respostas de erro seguem o formato `{ timestamp, status, erro, mensagem }`. Exemplos: conta não encontrada (404), saldo insuficiente (400), dados inválidos (400).
+- Historico em memoria: reiniciar a aplicacao apaga as transacoes.
+- Nao ha autenticacao nem autorizacao.
+- Mensageria e metricas nao integram provedores externos.
+- Listas e regras fixas no codigo (ex: lista restrita, limite de velocidade).
 
 ## Testes
 
-```bash
+```
 ./mvnw test
 ```
 
-Resultado: 40 testes passando, 0 falhas (contas, transferências com validação de saldo, extrato, repositórios e integração HTTP dos controladores).
+O repositorio contem testes automatizados.
 
 ## Licença
 
-MIT
+Distribuído sob a licenca MIT. Consulte o arquivo `LICENSE` do repositorio.
 
 ## Autor
 
-Kelvin Oliveira
+Kelvin Oliveira, https://github.com/KelvinOliveiraCode
+Portfolio: https://kelvinoliveiracode.github.io/portfolio/
