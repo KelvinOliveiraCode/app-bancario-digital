@@ -1,117 +1,120 @@
 # app-bancario-digital
 
-<div align="center">
-
 **English** · [Português (Brasil)](README.md)
 
-</div>
-
-[![Java 21](https://img.shields.io/badge/Java-21-%23007396?style=flat-square)](https://adoptium.net/) [![Spring Boot 3](https://img.shields.io/badge/Spring%20Boot-3-%236DB33F?style=flat-square)](https://spring.io/projects/spring-boot) [![Maven](https://img.shields.io/badge/Maven-3.9-C71A36?style=flat-square&logo=apache-maven)](https://maven.apache.org/) [![JUnit 5](https://img.shields.io/badge/JUnit-5-25A162?style=flat-square&logo=junit5)](https://junit.org/junit5/) [![MIT License](https://img.shields.io/badge/License-MIT-f4c430?style=flat-square)](LICENSE)
-
-### Projeto funcional ,  app-bancario-digital
-
----
+[![Java 21](https://img.shields.io/badge/Java-21-007396?style=flat-square&logo=openjdk&logoColor=white)](#) [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-6DB33F?style=flat-square&logo=springboot&logoColor=white)](#) [![H2](https://img.shields.io/badge/H2-in--memory-0B5FA5?style=flat-square)](#) [![React 18](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](#) [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](#) [![JUnit 5](https://img.shields.io/badge/JUnit-40%20tests-25A162?style=flat-square&logo=junit5&logoColor=white)](#) [![MIT License](https://img.shields.io/badge/License-MIT-f4c430?style=flat-square)](LICENSE)
 
 ## What it is
 
-Projeto funcional ,  app-bancario-digital
+A full-stack digital account: a **REST API in Java 21 + Spring Boot 3** for accounts, deposits, withdrawals, transfers and statements, plus a **React 18 + TypeScript frontend** (Vite + Tailwind) that consumes the endpoints. MVP scope: accounts, transfers with balance validation, statement.
 
----
+## Status
 
-## Quick Start
+Working and tested: **40 JUnit tests** passing (`mvn test`), BUILD SUCCESS. Academic/portfolio project.
 
-```bash
-# Clone and enter
-git clone https://github.com/KelvinOliveiraCode/<repo>.git
-cd <repo>
+## Features
 
-# Build and run tests
-./mvnw verify
+- **Accounts** (`ContaController`): create (`POST /contas`), fetch by id (`GET /contas/{id}`), list (`GET /contas`), deposit (`POST /contas/{id}/depositar`) and withdraw (`POST /contas/{id}/sacar`).
+- **Transfers** (`TransferenciaController`): `POST /transferencias` validates balance and source/target accounts; fails with `SaldoInsuficienteException`.
+- **Statement** (`ExtratoController`): `GET /extrato/{contaId}` returns the account entries.
+- **Global error handling** (`GlobalExceptionHandler`): maps missing account, invalid operation and insufficient balance to error responses with `ErrorResponse`.
+- **Frontend**: three screens (accounts, transfers, statement by account) in React Router.
 
-# Run the application
-./mvnw spring-boot:run
-# API available at http://localhost:8080
-# Swagger UI at http://localhost:8080/docs
+## Architecture
+
+Layered controller → service → repository (Spring Data JPA) over in-memory H2; the frontend talks to the API over HTTP.
+
+```mermaid
+flowchart LR
+    UI[React/Vite frontend] -->|HTTP| C[controllers]
+    C --> S[services - business rules]
+    S --> R[repositories - Spring Data JPA]
+    R --> DB[(in-memory H2)]
+    C -.->|errors| EH[GlobalExceptionHandler]
 ```
 
-## How it works
+## Stack
 
-Estrutura limpa e modular com separação de responsabilidades.
+- Java 21, Spring Boot 3.4.4 (`starter-web`, `starter-validation`, `starter-data-jpa`)
+- In-memory H2 (`jdbc:h2:mem:bancodigital`, `ddl-auto=create-drop`)
+- Lombok
+- Frontend: React 18, TypeScript 5.6, Vite 5, Tailwind 3, react-router-dom 6
+- Tests: JUnit 5 + Spring Boot Test (MockMvc, `@DataJpaTest`, service tests)
 
----
+## Repository layout
 
-## Capabilities
+```
+app-bancario-digital/
+├── pom.xml · BRIEF.md
+├── src/main/java/com/bancodigital/app/
+│   ├── AppBancarioDigitalApplication.java
+│   ├── controller/     # Conta, Transferencia, Extrato
+│   ├── service/        # business rules
+│   ├── repository/     # Spring Data JPA interfaces
+│   ├── model/          # Conta, Transferencia, Extrato
+│   ├── dto/            # requests/responses
+│   └── exception/      # exceptions + global handler
+├── src/main/resources/application.properties
+├── src/test/java/...   # 40 tests (controller, repository, service)
+└── frontend/           # React + TS + Tailwind + Vite
+```
 
-| Capacidade | Descrição |
-|------------|-------------|
-| API REST | Spring Boot 3, endpoints versionados, erros RFC 7807 |
-| Cálculo de Taxa | Strategy pattern ,  PIX R$0,49, Boleto R$2,49, Crédito 3,99%, Débito 1,89% |
-| Validação de Risco | Chain of Responsibility ,  HighValue -> Blocklist -> Velocity |
-| Registro de Transações | Registry Singleton em memória com trilha de auditoria completa |
-| Sistema de Eventos | Observer pattern ,  mensageria e métricas desacopladas |
-| Observabilidade | Endpoint /api/v1/observability expondo efeitos dos listeners |
-| Documentação da API | springdoc-openapi ,  Swagger UI em /docs, OpenAPI 3 em /api-docs |
-| Testes | JUnit 5, Mockito, MockMvc ,  testes de integração + unidade |
+## Prerequisites and installation
 
+- JDK 21 and Maven 3.9+
+- Node 18+ (optional, frontend only)
 
----
+```bash
+cd frontend && npm install   # only to run the UI
+```
 
+## How to run
 
+```bash
+# API (port 8080)
+mvn spring-boot:run
 
----
+# create an account and transfer
+curl -X POST localhost:8080/contas -H 'Content-Type: application/json' \
+  -d '{"titular":"Ana","saldoInicial":1000.00}'
+curl -X POST localhost:8080/transferencias -H 'Content-Type: application/json' \
+  -d '{"contaOrigemId":1,"contaDestinoId":2,"valor":150.00}'
 
-## FAQ
+# frontend
+cd frontend && npm install && npm run dev
+```
 
-<details>
-<summary><strong>What is this project?</strong></summary>
+Note: the database is in memory (`create-drop`) — data is lost on every restart.
 
-A Java/Spring Boot study/project demonstrating core concepts.
+## Tests and quality
 
-</details>
+Real command (verified by the agent):
 
-<details>
-<summary><strong>How do I run it?</strong></summary>
+```bash
+mvn test
+# Tests run: 40, Failures: 0, Errors: 0, Skipped: 0
+# BUILD SUCCESS
+```
 
-See [Quick Start](#quick-start) for copy-paste commands.
+## Technical decisions and trade-offs
 
-</details>
+- **In-memory H2**: starts and tears down with no infrastructure; in exchange, nothing persists between runs.
+- **controller/service/repository layers**: keeps HTTP apart from business rules and enables per-layer tests; in exchange, more files for a small domain.
+- **Domain exceptions + global handler**: consistent error responses in one place.
+- **Frontend kept in `frontend/`**: independent build from Maven; in exchange, two commands to bring the whole project up.
 
-<details>
-<summary><strong>Are there tests?</strong></summary>
+## Known limitations and roadmap
 
-No automated tests in this repository.
+- No authentication/authorization and no real persistence (in-memory database).
+- No scheduled transfers, limits or fees.
+- The frontend covers the basic flow (no automated tests there).
 
-</details>
+## Development process
 
-<details>
-<summary><strong>Can I use this in production?</strong></summary>
+An individual project by Kelvin Oliveira, built with orchestrated AI agents and reviewed by the author. The modeling decisions and the review are the author's.
 
-This is a **study/portfolio project**. Review and harden (auth, persistence, monitoring, etc.) before production use.
+## License and author
 
-</details>
+MIT — Copyright (c) 2026 Kelvin Rebelo de Oliveira.
 
-
-
----
-
-## Documentation
-
-- **Source Code** ,  Browse the `src/` directory for implementation details
-- **API Reference** ,  Swagger UI at `/docs` when running
-- **Architecture Diagram** ,  See [architecture.mermaid](docs/architecture.mermaid) (if present)
-- **Changelog** ,  [CHANGELOG.md](CHANGELOG.md) (if present)
-- **Contributing** ,  [CONTRIBUTING.md](CONTRIBUTING.md) (if present)
-
-## License
-
-[MIT](LICENSE) ,  Kelvin Oliveira
-
----
-
-<div align="center">
-
-**Built with** · Java 21 + Spring Boot 3 + Maven
-
-**Author** · [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfolio](https://kelvinoliveiracode.github.io/portfolio/)
-
-</div>
+**Author**: [Kelvin Oliveira](https://github.com/KelvinOliveiraCode) · [Portfolio](https://kelvinoliveiracode.github.io/portfolio/)
